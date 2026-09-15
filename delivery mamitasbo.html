@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAMITA S.B.O. — Repartidor</title>
+<style>
+  :root{
+    --negro: #0c0b0a;
+    --negro2: #17130f;
+    --rojo: #B3122A;
+    --rojo-vivo: #D8172F;
+    --crema: #F3ECD9;
+    --crema-suave: #FAF6EC;
+    --verde: #3C5E42;
+    --linea: #e6dcc4;
+    --dorado: #cbb27a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--negro);
+    color: var(--crema);
+    min-height:100vh;
+  }
+
+  /* ===== ENTRADA (nombre del repartidor) ===== */
+  #loginScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+  }
+  .login-card{
+    background: var(--negro2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 32px 26px;
+    max-width: 340px;
+    width:100%;
+    text-align:center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .login-card .lock{ font-size: 34px; margin-bottom: 10px; }
+  .login-card h1{ font-size: 18px; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .login-card h1 span{ color: var(--rojo-vivo); }
+  .login-card p{ font-size: 12.5px; color: #b5ac9c; margin-bottom: 20px; }
+  .login-card input{
+    width:100%;
+    border: 1.5px solid #3a342c;
+    background: #1d1914;
+    color: var(--crema);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 16px;
+    text-align:center;
+    margin-bottom: 12px;
+  }
+  .login-card input:focus{ outline:2px solid var(--rojo); }
+  .login-card button{
+    width:100%;
+    background: var(--rojo);
+    color:white;
+    border:none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight:800;
+    font-size: 14px;
+  }
+  .login-hint{ margin-top: 18px; font-size: 11px; color: #766f61; line-height:1.5; }
+
+  /* ===== PANEL ===== */
+  #dashboard{ display:none; }
+  header.admin-header{
+    background: var(--negro2);
+    padding: 20px 18px 16px;
+    text-align:center;
+    border-bottom: 3px solid var(--rojo);
+    position: sticky;
+    top:0;
+    z-index: 10;
+  }
+  header.admin-header h1{ font-size: 17px; letter-spacing: 0.5px; }
+  header.admin-header h1 span{ color: var(--rojo-vivo); }
+  header.admin-header p{
+    font-size: 11px; color: var(--dorado);
+    text-transform:uppercase; letter-spacing: 2px; margin-top: 3px;
+  }
+  .logout-btn{
+    position:absolute; top: 18px; right: 16px;
+    background: transparent; border: 1px solid rgba(255,255,255,0.2);
+    color: var(--crema); font-size: 11px; font-weight:700;
+    padding: 6px 12px; border-radius: 999px;
+  }
+
+  .content{ padding: 18px 16px 60px; max-width: 560px; margin: 0 auto; }
+  .zone-note{ font-size:12px; color:var(--dorado); text-align:center; margin-bottom:16px; }
+
+  .delivery-order{
+    background: var(--crema-suave); color: var(--negro);
+    border-radius: 16px; padding: 16px; margin-bottom: 14px;
+  }
+  .delivery-order .do-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .delivery-order .do-num{ font-weight:900; color:var(--rojo); font-size:14px; }
+  .delivery-order .do-addr{ font-size:15px; font-weight:800; margin-bottom:3px; }
+  .delivery-order .do-phone,.delivery-order .do-notes{ font-size:12.5px; color:#6b655b; margin-bottom:3px; }
+  .delivery-order .do-items{ font-size:12.5px; color:#6b655b; margin:10px 0; border-top:1px dashed var(--linea); border-bottom:1px dashed var(--linea); padding:8px 0; }
+  .delivery-order .do-total{ font-weight:800; text-align:right; margin-bottom:12px; }
+  .do-status{ display:inline-block; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; margin-bottom:10px; }
+  .do-status.pendiente{ background:#fdecec; color:var(--rojo); }
+  .do-status.en_camino{ background:#fff6e0; color:#a87a00; }
+  .do-status.entregado{ background:#e9f4ea; color:var(--verde); }
+  .do-assigned{ font-size:12px; font-weight:700; color:var(--verde); margin-bottom:10px; }
+  .do-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .do-actions button{ flex:1; min-width:120px; padding:12px; border-radius:8px; border:none; font-weight:800; cursor:pointer; font-size:13px; }
+  .do-map-btn{ background:#eee; color:#333; }
+  .do-take-btn{ background: var(--rojo); color:#fff; }
+  .do-advance-btn{ background:var(--verde); color:#fff; }
+  .do-locked{ font-size:12.5px; color:#8a8378; font-style:italic; }
+  .do-empty{ font-size:13px; color:#c9c2b3; text-align:center; padding:40px 0; }
+  .do-wa-btn{ background:#25D366; color:#fff; }
+
+  .whatsapp-float{
+    position: fixed;
+    right: 16px;
+    bottom: 20px;
+    z-index: 200;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    text-decoration: none;
+    transition: transform 0.15s ease;
+  }
+  .whatsapp-float:active{ transform: scale(0.92); }
+  .whatsapp-float svg{ width: 30px; height: 30px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="lock">🛵</div>
+    <h1>MAMITA <span>S.B.O.</span></h1>
+    <p>Panel del repartidor</p>
+    <input type="text" id="driverNameInput" placeholder="Escribe tu nombre" maxlength="30">
+    <button id="enterBtn">Entrar</button>
+    <div class="login-hint">Escribe tu nombre para ver los pedidos de delivery disponibles y los que ya tomaste.</div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header class="admin-header">
+    <button class="logout-btn" id="logoutBtn">Salir</button>
+    <h1>MAMITA <span>S.B.O.</span></h1>
+    <p id="driverLabel">Repartidor</p>
+  </header>
+  <div class="content">
+    <div class="zone-note">📍 Zona de reparto: San José de Ocoa, República Dominicana</div>
+    <div id="deliveryRoot"></div>
+  </div>
+</div>
+
+<a class="whatsapp-float" id="whatsappBtn" href="https://wa.me/18094131212?text=Hola%2C%20soy%20repartidor%20de%20MAMITA%20S.B.O." target="_blank" rel="noopener" aria-label="Escribir por WhatsApp al negocio">
+  <svg viewBox="0 0 32 32" fill="white" xmlns="http://www.w3.org/2000/svg">
+    <path d="M16.001 3C9.373 3 4 8.373 4 15c0 2.362.687 4.564 1.872 6.414L4 29l7.77-1.84A11.94 11.94 0 0 0 16.001 27C22.628 27 28 21.627 28 15S22.628 3 16.001 3zm0 21.75c-1.988 0-3.845-.58-5.406-1.578l-.388-.24-4.61 1.092 1.128-4.49-.253-.4A9.71 9.71 0 0 1 5.25 15c0-5.93 4.82-10.75 10.75-10.75S26.75 9.07 26.75 15 21.93 24.75 16 24.75zm5.94-8.07c-.325-.163-1.924-.95-2.222-1.058-.298-.108-.515-.163-.732.163-.217.325-.84 1.058-1.03 1.276-.19.217-.38.244-.706.081-.325-.163-1.373-.506-2.615-1.613-.967-.862-1.62-1.927-1.81-2.252-.19-.325-.02-.5.143-.663.147-.146.325-.38.488-.57.163-.19.217-.325.325-.542.108-.217.054-.407-.027-.57-.081-.163-.732-1.763-1.003-2.414-.264-.634-.532-.548-.732-.558l-.624-.011c-.217 0-.57.081-.868.407-.298.325-1.138 1.113-1.138 2.713 0 1.6 1.165 3.146 1.327 3.363.163.217 2.293 3.502 5.556 4.912.776.335 1.382.535 1.854.685.779.248 1.488.213 2.049.13.625-.093 1.924-.787 2.196-1.547.271-.76.271-1.412.19-1.548-.081-.135-.298-.217-.624-.38z"/>
+  </svg>
+</a>
+
+<script>
+const DELIVERY_ZONE = "San José de Ocoa, República Dominicana";
+function money(n){ return "$" + Number(n).toLocaleString("es-DO"); }
+
+function loadOrders(){
+  try{ return JSON.parse(localStorage.getItem("mamita_store_orders") || "{}"); }
+  catch(e){ return {}; }
+}
+function saveOrders(orders){ localStorage.setItem("mamita_store_orders", JSON.stringify(orders)); }
+
+function getDriverName(){ return localStorage.getItem("mamita_driver_name") || ""; }
+function setDriverName(n){ localStorage.setItem("mamita_driver_name", n); }
+
+function mapsLink(address){
+  const q = encodeURIComponent(address + ", " + DELIVERY_ZONE);
+  return "https://www.google.com/maps/search/?api=1&query=" + q;
+}
+
+function clientWaLink(phone, num){
+  const digits = (phone || "").replace(/\D/g, "");
+  if(!digits) return null;
+  const full = digits.length === 10 ? "1" + digits : digits;
+  const msg = encodeURIComponent("Hola, soy el repartidor de MAMITA S.B.O. y voy en camino con tu pedido #" + num + ".");
+  return "https://wa.me/" + full + "?text=" + msg;
+}
+
+document.getElementById("enterBtn").addEventListener("click", tryEnter);
+document.getElementById("driverNameInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") tryEnter();
+});
+function tryEnter(){
+  const name = document.getElementById("driverNameInput").value.trim();
+  if(!name) return;
+  setDriverName(name);
+  startDashboard();
+}
+document.getElementById("logoutBtn").addEventListener("click", ()=>{
+  document.getElementById("dashboard").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("driverNameInput").value = "";
+});
+
+function startDashboard(){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("dashboard").style.display = "block";
+  document.getElementById("driverLabel").textContent = "Repartidor: " + getDriverName();
+  renderDelivery();
+  setInterval(renderDelivery, 5000);
+}
+
+function renderDelivery(){
+  const root = document.getElementById("deliveryRoot");
+  const me = getDriverName();
+  const orders = loadOrders();
+  const entries = Object.entries(orders).filter(([num,o])=> o.type === "delivery" && o.deliveryStatus !== "entregado");
+  entries.sort((a,b)=> (a[1].ts||0) - (b[1].ts||0));
+
+  if(entries.length === 0){
+    root.innerHTML = `<p class="do-empty">No hay pedidos de delivery pendientes en este momento.</p>`;
+    return;
+  }
+
+  const statusLabel = { pendiente:"● Pendiente", en_camino:"🚚 En camino" };
+  const nextStatus = { pendiente:"en_camino", en_camino:"entregado" };
+  const nextLabel = { pendiente:"Salir a entregar", en_camino:"Marcar entregado" };
+
+  root.innerHTML = entries.map(([num,o])=>{
+    const status = o.deliveryStatus || "pendiente";
+    const isMine = o.assignedTo === me;
+    const isTaken = !!o.assignedTo && !isMine;
+    const waLink = clientWaLink(o.phone, num);
+    const waBtnHtml = waLink ? `<a class="do-wa-btn" style="flex:1;min-width:120px;padding:12px;border-radius:8px;font-weight:800;font-size:13px;text-align:center;text-decoration:none;display:inline-block;" href="${waLink}" target="_blank" rel="noopener">💬 Escribir al cliente</a>` : "";
+    let actionsHtml = "";
+    if(isTaken){
+      actionsHtml = `<div class="do-locked">Ya lo tomó ${o.assignedTo}</div>`;
+    } else if(!o.assignedTo){
+      actionsHtml = `
+        <div class="do-actions">
+          <button class="do-map-btn" data-map="${num}">Ver en mapa</button>
+          <button class="do-take-btn" data-take="${num}">Tomar pedido</button>
+          ${waBtnHtml}
+        </div>`;
+    } else {
+      actionsHtml = `
+        <div class="do-actions">
+          <button class="do-map-btn" data-map="${num}">Ver en mapa</button>
+          <button class="do-advance-btn" data-advance="${num}">${nextLabel[status]}</button>
+          ${waBtnHtml}
+        </div>`;
+    }
+    return `
+    <div class="delivery-order">
+      <div class="do-top">
+        <span class="do-num">#${num}</span>
+        <span class="do-status ${status}">${statusLabel[status]}</span>
+      </div>
+      <div class="do-addr">📍 ${o.address || "(sin dirección)"}</div>
+      <div class="do-phone">📞 ${o.phone || "(sin teléfono)"}</div>
+      ${o.notes ? `<div class="do-notes">📝 ${o.notes}</div>` : ``}
+      ${isMine ? `<div class="do-assigned">✔ Asignado a ti</div>` : ``}
+      <div class="do-items">
+        ${o.items.map(i=>`<div style="display:flex;justify-content:space-between;"><span>${i.name}</span><span>${money(i.price)}</span></div>`).join("")}
+        <div style="display:flex;justify-content:space-between;"><span>🚚 Envío</span><span>${money(o.deliveryFee||0)}</span></div>
+      </div>
+      <div class="do-total">Total: ${money(o.total)} ${o.paid ? '· ✔ ya pagado' : '· cobrar al entregar'}</div>
+      ${actionsHtml}
+    </div>`;
+  }).join("");
+
+  root.querySelectorAll("[data-map]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const o = loadOrders()[btn.dataset.map];
+      if(o && o.address) window.open(mapsLink(o.address), "_blank");
+    });
+  });
+  root.querySelectorAll("[data-take]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const num2 = btn.dataset.take;
+      const orders2 = loadOrders();
+      const o = orders2[num2];
+      if(!o || o.assignedTo) { renderDelivery(); return; }
+      o.assignedTo = getDriverName();
+      saveOrders(orders2);
+      renderDelivery();
+    });
+  });
+  root.querySelectorAll("[data-advance]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const num2 = btn.dataset.advance;
+      const orders2 = loadOrders();
+      const o = orders2[num2];
+      if(!o || o.assignedTo !== getDriverName()) { renderDelivery(); return; }
+      const cur = o.deliveryStatus || "pendiente";
+      if(nextStatus[cur]){
+        o.deliveryStatus = nextStatus[cur];
+        if(o.deliveryStatus === "entregado") o.paid = true;
+        saveOrders(orders2);
+        renderDelivery();
+      }
+    });
+  });
+}
+
+if(getDriverName()){
+  startDashboard();
+}
+</script>
+</body>
+</html>

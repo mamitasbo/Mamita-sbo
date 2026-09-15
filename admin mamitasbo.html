@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAMITA S.B.O. — Panel del Restaurante</title>
+<style>
+  :root{
+    --negro: #0c0b0a;
+    --negro2: #17130f;
+    --rojo: #B3122A;
+    --rojo-vivo: #D8172F;
+    --crema: #F3ECD9;
+    --crema-suave: #FAF6EC;
+    --verde: #3C5E42;
+    --linea: #e6dcc4;
+    --dorado: #cbb27a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--negro);
+    color: var(--crema);
+    min-height:100vh;
+  }
+
+  /* ===== LOGIN GATE ===== */
+  #loginScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+  }
+  .login-card{
+    background: var(--negro2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 32px 26px;
+    max-width: 340px;
+    width:100%;
+    text-align:center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .login-card .lock{ font-size: 34px; margin-bottom: 10px; }
+  .login-card h1{
+    font-size: 18px;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .login-card p{
+    font-size: 12.5px;
+    color: #b5ac9c;
+    margin-bottom: 20px;
+  }
+  .login-card input{
+    width:100%;
+    border: 1.5px solid #3a342c;
+    background: #1d1914;
+    color: var(--crema);
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 20px;
+    letter-spacing: 4px;
+    text-align:center;
+    margin-bottom: 12px;
+  }
+  .login-card input:focus{ outline:2px solid var(--rojo); }
+  .login-card button{
+    width:100%;
+    background: var(--rojo);
+    color:white;
+    border:none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight:800;
+    font-size: 14px;
+  }
+  .login-error{
+    color: #ff8a8a;
+    font-size: 12px;
+    font-weight:700;
+    margin-top: 10px;
+    min-height: 16px;
+  }
+  .login-hint{
+    margin-top: 18px;
+    font-size: 11px;
+    color: #766f61;
+    line-height:1.5;
+  }
+
+  /* ===== DASHBOARD ===== */
+  #dashboard{ display:none; }
+  header.admin-header{
+    background: var(--negro2);
+    padding: 20px 18px 16px;
+    text-align:center;
+    border-bottom: 3px solid var(--rojo);
+    position: sticky;
+    top:0;
+    z-index: 10;
+  }
+  header.admin-header h1{
+    font-size: 17px;
+    letter-spacing: 0.5px;
+  }
+  header.admin-header h1 span{ color: var(--rojo-vivo); }
+  header.admin-header p{
+    font-size: 11px;
+    color: var(--dorado);
+    text-transform:uppercase;
+    letter-spacing: 2px;
+    margin-top: 3px;
+  }
+  .logout-btn{
+    position:absolute;
+    top: 18px; right: 16px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--crema);
+    font-size: 11px;
+    font-weight:700;
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+
+  .tabs{
+    display:flex;
+    overflow-x:auto;
+    gap:6px;
+    padding: 12px 14px;
+    background: var(--negro2);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: sticky;
+    top: 73px;
+    z-index: 9;
+  }
+  .tabs::-webkit-scrollbar{ display:none; }
+  .tabs button{
+    flex:0 0 auto;
+    background: transparent;
+    border: 1px solid #3a342c;
+    color: #d9d2c2;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .tabs button.active{
+    background: var(--rojo);
+    border-color: var(--rojo);
+    color:white;
+  }
+
+  .tab-panel{ display:none; padding: 18px 16px 60px; max-width: 560px; margin: 0 auto; }
+  .tab-panel.active{ display:block; }
+
+  .card{
+    background: var(--crema-suave);
+    color: var(--negro);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h2{ font-size: 15px; margin-bottom: 4px; }
+  .card .sub{ font-size: 12px; color:#79705f; margin-bottom: 14px; }
+
+  /* Estado */
+  .estado-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:white; border:1px solid var(--linea); border-radius:12px;
+    padding: 14px 16px;
+  }
+  .estado-label{ font-weight:800; font-size: 14px; }
+  .estado-label.open{ color: var(--verde); }
+  .estado-label.closed{ color: var(--rojo); }
+  .switch{
+    position: relative; width: 46px; height: 26px;
+    background: var(--verde); border-radius:999px; border:none; cursor:pointer;
+  }
+  .switch.off{ background:#b3a99652; }
+  .switch::after{
+    content:""; position:absolute; top:3px; left:23px;
+    width:20px; height:20px; background:white; border-radius:50%;
+    transition:left 0.2s ease; box-shadow:0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch.off::after{ left:3px; }
+
+  /* Caja */
+  .caja-input-row{ display:flex; gap:8px; margin-bottom:16px; }
+  .caja-input-row input{
+    flex:1; border:1.5px solid var(--linea); background:white;
+    border-radius:10px; padding:12px; font-size:20px; letter-spacing:3px;
+    text-align:center; font-weight:800;
+  }
+  .caja-input-row input:focus{ outline:2px solid var(--rojo); border-color:var(--rojo); }
+  .btn{
+    background: var(--negro); color:var(--crema); border:none;
+    padding: 0 18px; border-radius:10px; font-weight:700; font-size:13px;
+  }
+  .btn.primary{ background: var(--rojo); color:white; }
+  .btn.green{ background: var(--verde); color:white; }
+  .caja-empty{ text-align:center; font-size:13px; color:#8a8378; padding:20px 0; }
+  .caja-result .cr-total{ font-size:26px; font-weight:900; color:var(--rojo); text-align:center; margin:6px 0 14px; }
+  .caja-result .cr-line{ display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--linea); }
+  .cr-mesa{ text-align:center; font-weight:700; color:var(--verde); font-size:13px; margin-bottom:8px; }
+  .cr-status{ text-align:center; font-size:12px; font-weight:700; margin-top:10px; padding:8px; border-radius:8px; }
+  .cr-status.pendiente{ background:#fdecec; color:var(--rojo); }
+  .cr-status.pagado{ background:#e9f4ea; color:var(--verde); }
+  .mark-paid-btn{
+    width:100%; background:var(--verde); color:white; border:none;
+    padding:13px; border-radius:12px; font-weight:800; font-size:13.5px; margin-top:14px;
+  }
+  .mark-paid-btn:disabled{ background:#c9bfa9; }
+  .caja-thanks{ text-align:center; padding:26px 10px; }
+  .caja-thanks-icon{ font-size:40px; margin-bottom:8px; }
+  .caja-thanks-title{ font-size:20px; font-weight:800; color: var(--verde); }
+  .caja-thanks-sub{ font-size:15px; color: var(--crema); opacity:.85; margin-top:4px; }
+  .delivery-order{ border:1px solid var(--linea); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .delivery-order .do-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .delivery-order .do-num{ font-weight:900; color:var(--rojo); }
+  .delivery-order .do-addr{ font-size:14px; font-weight:700; margin-bottom:2px; }
+  .delivery-order .do-phone,.delivery-order .do-notes{ font-size:12px; color:#6b655b; margin-bottom:2px; }
+  .delivery-order .do-items{ font-size:12px; color:#6b655b; margin:8px 0; border-top:1px dashed var(--linea); border-bottom:1px dashed var(--linea); padding:8px 0; }
+  .delivery-order .do-total{ font-weight:800; text-align:right; margin-bottom:10px; }
+  .do-status{ display:inline-block; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; margin-bottom:10px; }
+  .do-status.pendiente{ background:#fdecec; color:var(--rojo); }
+  .do-status.en_camino{ background:#fff6e0; color:#a87a00; }
+  .do-status.entregado{ background:#e9f4ea; color:var(--verde); }
+  .do-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .do-actions button{ flex:1; min-width:120px; padding:10px; border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:13px; }
+  .do-map-btn{ background:#eee; color:#333; }
+  .do-advance-btn{ background:var(--verde); color:#fff; }
+  .do-empty{ font-size:13px; color:#8a8378; text-align:center; padding:20px 0; }
+
+  /* Precios */
+  .cat-block{ margin-bottom: 18px; }
+  .cat-block h3{
+    font-size: 12px; text-transform:uppercase; letter-spacing:1.5px;
+    color: var(--verde); margin-bottom: 8px; padding-bottom:4px;
+    border-bottom: 1px solid var(--linea);
+  }
+  .price-row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding: 9px 0; border-bottom: 1px dashed var(--linea);
+  }
+  .price-row .pname{ font-size:13px; font-weight:600; flex:1; min-width:0; }
+  .price-row .pinputs{ display:flex; gap:6px; flex-shrink:0; }
+  .price-row input{
+    width: 78px; border:1.5px solid var(--linea); border-radius:8px;
+    padding: 7px 8px; font-size:13px; text-align:right; font-weight:700;
+  }
+  .price-row input:focus{ outline:2px solid var(--rojo); border-color:var(--rojo); }
+  .size-tag{ font-size:9px; color:#a89f8f; display:block; text-align:center; margin-top:2px; }
+  .save-flash{
+    display:inline-block; margin-left:6px; font-size:11px; color:var(--verde); font-weight:800;
+    opacity:0; transition:opacity 0.3s ease;
+  }
+  .save-flash.show{ opacity:1; }
+  .inv-status{ font-size:11px; font-weight:700; color:var(--verde); flex-shrink:0; width:70px; text-align:right; }
+  .inv-switch.off + .inv-status{ color:var(--rojo); }
+
+  /* Reportes */
+  .report-range-tabs{ display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .report-range-tabs button{
+    flex:1; min-width:70px; background:var(--crema-suave); border:1px solid var(--linea);
+    color:var(--negro); padding:8px; border-radius:8px; font-size:12px; font-weight:700;
+  }
+  .report-range-tabs button.active{ background:var(--rojo); color:white; border-color:var(--rojo); }
+  .report-stats{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .report-stat{
+    flex:1; min-width:120px; background:var(--crema-suave); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .report-stat .rs-val{ font-size:22px; font-weight:900; color:var(--rojo); }
+  .report-stat .rs-lbl{ font-size:11px; color:#6b655b; text-transform:uppercase; letter-spacing:0.4px; margin-top:2px; }
+  .top-dish-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 0; border-bottom:1px dashed var(--linea); font-size:13px;
+  }
+  .top-dish-row .td-name{ font-weight:600; flex:1; min-width:0; }
+  .top-dish-row .td-count{ font-weight:800; color:var(--verde); flex-shrink:0; margin-left:10px; }
+  .report-empty{ font-size:13px; color:#8a8378; text-align:center; padding:20px 0; }
+
+  /* Promociones */
+  .promo-form select, .promo-form input{
+    width:100%; border:1.5px solid var(--linea); border-radius:10px;
+    padding: 11px 12px; font-size:14px; margin-bottom:12px; background:white;
+  }
+  .promo-form label{
+    display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;
+    color:#79705f; margin-bottom:5px;
+  }
+  .promo-form .row2{ display:flex; gap:10px; }
+  .promo-form .row2 > div{ flex:1; }
+  .promo-list-item{
+    display:flex; justify-content:space-between; align-items:center;
+    background:white; border:1px solid var(--linea); border-radius:12px;
+    padding: 12px 14px; margin-bottom:10px;
+  }
+  .promo-list-item .pl-name{ font-size:13px; font-weight:700; }
+  .promo-list-item .pl-detail{ font-size:11.5px; color:#79705f; margin-top:2px; }
+  .promo-remove{
+    background: none; border:1px solid var(--rojo); color:var(--rojo);
+    font-size:11px; font-weight:700; padding:6px 10px; border-radius:8px;
+  }
+  .empty-note{ text-align:center; font-size:13px; color:#8a8378; padding: 10px 0; }
+
+  /* Ajustes */
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#79705f; margin-bottom:5px; }
+  .field input{
+    width:100%; border:1.5px solid var(--linea); border-radius:10px;
+    padding:12px; font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="lock">🔒</div>
+    <h1>Panel del Restaurante</h1>
+    <p>MAMITA S.B.O. — acceso solo para personal autorizado</p>
+    <input type="password" id="passwordInput" placeholder="Contraseña" autocomplete="current-password">
+    <button type="button" id="togglePass" style="background:none;border:none;color:#a89f8f;font-size:11px;text-decoration:underline;margin:-4px 0 12px;width:100%;padding:0;">Mostrar contraseña</button>
+    <button id="loginBtn">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-hint">Esta página es independiente del menú del cliente. Compártela solo con el personal de caja.</div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header class="admin-header">
+    <button class="logout-btn" id="logoutBtn">Salir</button>
+    <h1>MAMITA <span>S.B.O.</span></h1>
+    <p>Panel del restaurante</p>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="estado" class="active">🔓 Estado</button>
+    <button data-tab="caja">🧾 Caja</button>
+    <button data-tab="delivery">🚚 Delivery</button>
+    <button data-tab="precios">💲 Precios</button>
+    <button data-tab="inventario">📦 Inventario</button>
+    <button data-tab="reportes">📊 Reportes</button>
+    <button data-tab="promos">🏷️ Promociones</button>
+    <button data-tab="ajustes">⚙️ Ajustes</button>
+  </nav>
+
+  <div class="tab-panel active" id="tab-estado">
+    <div class="card">
+      <h2>Estado del restaurante</h2>
+      <div class="sub">Esto se refleja al instante en el menú de los clientes (si lo tienen abierto en el mismo dispositivo, o al recargar la página en cualquier otro).</div>
+      <div class="estado-row">
+        <span class="estado-label" id="estadoLabel">Abierto</span>
+        <button class="switch" id="estadoSwitch"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-caja">
+    <div class="card">
+      <h2>Aceptar pago de un pedido</h2>
+      <div class="sub">Pide al cliente el número que le aparece en su pantalla al elegir "Pagar en tienda".</div>
+      <div class="caja-input-row">
+        <input type="text" id="cajaInput" placeholder="N.º" inputmode="numeric" maxlength="4">
+        <button class="btn primary" id="cajaSearchBtn">Buscar</button>
+      </div>
+      <div id="cajaResult"><p class="caja-empty">Ingresa el número que te muestra el cliente.</p></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-delivery">
+    <div class="card">
+      <h2>Pedidos de delivery</h2>
+      <div class="sub">Zona de reparto: San José de Ocoa, República Dominicana. Toca "Ver en mapa" para abrir la dirección en Google Maps.</div>
+      <div id="deliveryRoot"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-precios">
+    <div class="card">
+      <h2>Precios del menú</h2>
+      <div class="sub">Cambia el precio y toca fuera del campo para guardar. Se aplica de inmediato en el menú del cliente.</div>
+      <div id="preciosRoot"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-inventario">
+    <div class="card">
+      <h2>Platos agotados</h2>
+      <div class="sub">Marca un plato como agotado y desaparece la opción de agregarlo en el menú del cliente al instante. Vuelve a activarlo cuando esté disponible de nuevo.</div>
+      <div id="inventarioRoot"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-reportes">
+    <div class="card">
+      <h2>Resumen de ventas</h2>
+      <div class="sub">Solo se cuentan los pedidos ya marcados como pagados.</div>
+      <div class="report-range-tabs" id="reportRangeTabs">
+        <button data-range="hoy" class="active">Hoy</button>
+        <button data-range="semana">Esta semana</button>
+        <button data-range="mes">Este mes</button>
+        <button data-range="todo">Todo</button>
+      </div>
+      <div id="reportSummaryRoot"></div>
+    </div>
+    <div class="card">
+      <h2>Platos más vendidos</h2>
+      <div id="reportTopDishesRoot"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-promos">
+    <div class="card">
+      <h2>Nueva promoción</h2>
+      <div class="sub">Elige un plato, ponle un precio de oferta y una etiqueta. Aparecerá tachado con el precio normal en el menú.</div>
+      <div class="promo-form">
+        <label>Plato</label>
+        <select id="promoDishSelect"></select>
+        <div id="promoPriceFields"></div>
+        <label>Etiqueta (ej. "Oferta del día", "2x1")</label>
+        <input type="text" id="promoLabel" placeholder="Oferta del día" maxlength="24">
+        <button class="btn primary" id="addPromoBtn" style="width:100%;">Aplicar promoción</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Promociones activas</h2>
+      <div id="activePromosRoot"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-ajustes">
+    <div class="card">
+      <h2>Delivery</h2>
+      <div class="sub">Configura el costo de envío que se le suma al pedido en el menú del cliente.</div>
+      <div class="field">
+        <label>Tarifa de envío (RD$)</label>
+        <input type="number" id="deliveryFeeInput" min="0" step="1">
+      </div>
+      <button class="btn primary" id="saveDeliveryFeeBtn" style="width:100%;">Guardar tarifa</button>
+      <div class="login-error" id="deliveryFeeMsg" style="color:var(--verde);"></div>
+    </div>
+    <div class="card">
+      <h2>Cambiar contraseña</h2>
+      <div class="sub">Úsala para que solo el personal de caja pueda entrar a este panel.</div>
+      <div class="field">
+        <label>Contraseña actual</label>
+        <input type="password" id="currentPass">
+      </div>
+      <div class="field">
+        <label>Nueva contraseña</label>
+        <input type="password" id="newPass">
+      </div>
+      <button class="btn primary" id="changePassBtn" style="width:100%;">Guardar nueva contraseña</button>
+      <div class="login-error" id="passChangeMsg" style="color:var(--verde);"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MENU = [
+  { cat:"Entradas", items:[
+    {n:"Mozzarella Sticks", d:"Palitos de queso mozzarella empanizado, salsa tomate casera.", p:260},
+    {n:"Palitos Dilubina", d:"Palitos de masa fresca recién horneados, con salsa de ajo y salsa tomate casera.", p:170},
+    {n:"Tiras al Parmesano", d:"Palitos de masa fresca recién horneados, con salsa de ajo y queso parmesano.", p:195},
+    {n:"Tiras al Mozzarella", d:"Palitos de masa fresca recién horneados, con salsa de ajo y queso mozzarella.", p:190},
+    {n:"Espirales de Pepperoni", d:"Rollitos de masa fresca recién horneados, con salsa de ajo, queso mozzarella y pepperoni salsa roja.", p:260},
+  ]},
+  { cat:"Pastas", items:[
+    {n:"A la Carbonara", d:"", p:390},
+    {n:"A la Boloñesa", d:"", p:390},
+    {n:"De Pechuga a la Crema", d:"", p:390},
+    {n:"Con Camarones a la Crema", d:"", p:400},
+    {n:"Pasta al Pesto", d:"", p:325},
+    {n:"Pasta Alfredo", d:"", p:350},
+    {n:"Lasagna", d:"", p:250},
+  ]},
+  { cat:"Pizzas Tradicionales", sizes:true, items:[
+    {n:"Queso", p4:370, p8:570},
+    {n:"Jamón", p4:370, p8:570},
+    {n:"Pepperoni", p4:370, p8:570},
+    {n:"Pollo", p4:390, p8:700},
+    {n:"Res", p4:400, p8:700},
+    {n:"Salchicha Italiana", p4:400, p8:710},
+    {n:"Vegetales Frescos", p4:400, p8:710},
+    {n:"Tomate Frescos", p4:370, p8:670},
+    {n:"Tocineta", p4:380, p8:690},
+  ]},
+  { cat:"Especialidades", sizes:true, items:[
+    {n:"Pizza de Chivo", p4:590, p8:990},
+    {n:"Ocoeña de la Horma", p4:390, p8:690},
+    {n:"Pizza Chimi", p4:450, p8:890},
+    {n:"Pizza Italiana", p4:450, p8:890},
+    {n:"Pizza Margarita", p4:390, p8:690},
+    {n:"Pizza a la Mexicana", p4:415, p8:800},
+    {n:"Pizza Hawaiana", p4:400, p8:760},
+    {n:"Pizza Alta Gama", p4:455, p8:885},
+    {n:"Pizza Edición Especial", p4:470, p8:900},
+    {n:"La Mejor Pizza del Mundo", p4:535, p8:1010},
+    {n:"Especial de Carnes", p4:530, p8:1010},
+    {n:"Pizza a la BBQ", p4:510, p8:1030},
+    {n:"Calzone de Queso", p4:330, p8:580},
+  ]},
+  { cat:"Carnes", items:[
+    {n:"Churrasco Angus 8oz", p:1190},
+    {n:"Alitas a la BBQ", p:290},
+    {n:"Pechuga a la Plancha 8oz", p:290},
+    {n:"Salmón Fresco", p:990},
+  ]},
+  { cat:"Burger", items:[
+    {n:"Chicken Cheeseburger", p:250},
+    {n:"Bacon Cheeseburger", p:290},
+    {n:"Cheeseburger", p:260},
+  ]},
+  { cat:"Mofongos", items:[
+    {n:"Camarofongo", p:490},
+    {n:"Pechugafongo", p:390},
+    {n:"Mofongo Clásico", p:380},
+  ]},
+  { cat:"Guarniciones", items:[
+    {n:"Mofonguito", p:190},
+    {n:"Yuquita Frita", p:150},
+    {n:"Tostones", p:120},
+    {n:"Papa Frita", p:115},
+    {n:"Papas Sazonadas", p:135},
+    {n:"Ensalada Verde", p:95},
+  ]},
+];
+
+function money(n){ return "$" + Number(n).toLocaleString("es-DO"); }
+
+/* ===== CONTRASEÑA ===== */
+const DEFAULT_PASSWORD = "mamita123";
+function getPassword(){ return localStorage.getItem("mamita_admin_password") || DEFAULT_PASSWORD; }
+
+/* ===== PEDIDOS (mismas claves que usa el menú del cliente) ===== */
+function loadOrders(){
+  try{ return JSON.parse(localStorage.getItem("mamita_store_orders") || "{}"); }
+  catch(e){ return {}; }
+}
+function saveOrders(orders){ localStorage.setItem("mamita_store_orders", JSON.stringify(orders)); }
+
+/* ===== TARIFA DE DELIVERY ===== */
+function getDeliveryFee(){
+  const v = parseFloat(localStorage.getItem("mamita_delivery_fee"));
+  return isNaN(v) ? 100 : v;
+}
+function setDeliveryFee(v){ localStorage.setItem("mamita_delivery_fee", String(v)); }
+const DELIVERY_ZONE = "San José de Ocoa, República Dominicana";
+
+/* ===== PRECIOS Y PROMOS ===== */
+function loadOverrides(){
+  try{ return JSON.parse(localStorage.getItem("mamita_price_overrides") || "{}"); }
+  catch(e){ return {}; }
+}
+function saveOverrides(o){ localStorage.setItem("mamita_price_overrides", JSON.stringify(o)); }
+function loadPromos(){
+  try{ return JSON.parse(localStorage.getItem("mamita_promotions") || "{}"); }
+  catch(e){ return {}; }
+}
+function savePromos(p){ localStorage.setItem("mamita_promotions", JSON.stringify(p)); }
+function loadSoldOut(){
+  try{ return JSON.parse(localStorage.getItem("mamita_sold_out") || "{}"); }
+  catch(e){ return {}; }
+}
+function saveSoldOut(s){ localStorage.setItem("mamita_sold_out", JSON.stringify(s)); }
+
+/* ===== ESTADO ABIERTO/CERRADO ===== */
+function isOpen(){
+  const v = localStorage.getItem("mamita_open");
+  return v === null ? true : v === "1";
+}
+function setOpen(v){ localStorage.setItem("mamita_open", v ? "1" : "0"); }
+
+/* ===== LOGIN ===== */
+document.getElementById("loginBtn").addEventListener("click", tryLogin);
+document.getElementById("togglePass").addEventListener("click", ()=>{
+  const inp = document.getElementById("passwordInput");
+  const btn = document.getElementById("togglePass");
+  if(inp.type === "password"){ inp.type = "text"; btn.textContent = "Ocultar contraseña"; }
+  else { inp.type = "password"; btn.textContent = "Mostrar contraseña"; }
+});
+document.getElementById("passwordInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") tryLogin();
+});
+function tryLogin(){
+  const val = document.getElementById("passwordInput").value;
+  if(val === getPassword()){
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    initDashboard();
+  } else {
+    document.getElementById("loginError").textContent = "Contraseña incorrecta.";
+  }
+}
+document.getElementById("logoutBtn").addEventListener("click", ()=>{
+  document.getElementById("dashboard").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("passwordInput").value = "";
+  document.getElementById("loginError").textContent = "";
+});
+
+/* ===== TABS ===== */
+document.getElementById("tabs").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-tab]");
+  if(!btn) return;
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+});
+
+let dashboardInited = false;
+function initDashboard(){
+  if(dashboardInited) return;
+  dashboardInited = true;
+  renderEstado();
+  renderPrecios();
+  renderInventario();
+  renderReportes();
+  renderPromoForm();
+  renderActivePromos();
+  renderDelivery();
+  document.getElementById("deliveryFeeInput").value = getDeliveryFee();
+}
+
+/* ===== ESTADO ===== */
+function renderEstado(){
+  const label = document.getElementById("estadoLabel");
+  const sw = document.getElementById("estadoSwitch");
+  const open = isOpen();
+  label.textContent = open ? "Abierto" : "Cerrado";
+  label.className = "estado-label " + (open ? "open" : "closed");
+  sw.classList.toggle("off", !open);
+}
+document.getElementById("estadoSwitch").addEventListener("click", ()=>{
+  setOpen(!isOpen());
+  renderEstado();
+});
+
+/* ===== CAJA ===== */
+document.getElementById("cajaInput").addEventListener("input", (e)=>{
+  e.target.value = e.target.value.replace(/\D/g,"").slice(0,4);
+});
+document.getElementById("cajaInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("cajaSearchBtn").click();
+});
+document.getElementById("cajaSearchBtn").addEventListener("click", ()=>{
+  const num = document.getElementById("cajaInput").value.trim();
+  if(num.length !== 4){
+    document.getElementById("cajaResult").innerHTML = `<p class="caja-empty">Escribe el número de 4 dígitos.</p>`;
+    return;
+  }
+  renderCajaResult(num);
+});
+function renderCajaResult(num){
+  const orders = loadOrders();
+  const order = orders[num];
+  const result = document.getElementById("cajaResult");
+  if(!order){
+    result.innerHTML = `<p class="caja-empty">No se encontró ningún pedido con el número <strong>${num}</strong>.</p>`;
+    return;
+  }
+  result.innerHTML = `
+    <div class="caja-result">
+      ${order.table ? `<div class="cr-mesa">🍽️ Mesa ${order.table}</div>` : ``}
+      <div class="cr-total">${money(order.total)}</div>
+      ${order.items.map(i=>`<div class="cr-line"><span>${i.name}</span><span>${money(i.price)}</span></div>`).join("")}
+      <div class="cr-status ${order.paid ? 'pagado':'pendiente'}">${order.paid ? '✔ Ya pagado' : '● Pendiente de pago'}</div>
+      <button class="mark-paid-btn" id="markPaidBtn" ${order.paid ? 'disabled':''}>${order.paid ? 'Ya está marcado como pagado' : 'Aceptar pago'}</button>
+    </div>`;
+  const markBtn = document.getElementById("markPaidBtn");
+  if(markBtn && !order.paid){
+    markBtn.addEventListener("click", ()=>{
+      const orders2 = loadOrders();
+      if(orders2[num]){
+        orders2[num].paid = true;
+        saveOrders(orders2);
+        result.innerHTML = `
+          <div class="caja-thanks">
+            <div class="caja-thanks-icon">🍕</div>
+            <div class="caja-thanks-title">¡Gracias por su pago!</div>
+            <div class="caja-thanks-sub">Vuelva pronto 💛</div>
+          </div>`;
+        document.getElementById("cajaInput").value = "";
+        setTimeout(()=>{
+          result.innerHTML = `<p class="caja-empty">Ingresa el número que te muestra el cliente.</p>`;
+        }, 2500);
+      }
+    });
+  }
+}
+
+/* ===== DELIVERY ===== */
+function mapsLink(address){
+  const q = encodeURIComponent(address + ", " + DELIVERY_ZONE);
+  return "https://www.google.com/maps/search/?api=1&query=" + q;
+}
+function renderDelivery(){
+  const root = document.getElementById("deliveryRoot");
+  const orders = loadOrders();
+  const entries = Object.entries(orders).filter(([num,o])=>o.type === "delivery");
+  entries.sort((a,b)=> (b[1].ts||0) - (a[1].ts||0));
+  if(entries.length === 0){
+    root.innerHTML = `<p class="do-empty">Todavía no hay pedidos de delivery.</p>`;
+    return;
+  }
+  const statusLabel = { pendiente:"● Pendiente", en_camino:"🚚 En camino", entregado:"✔ Entregado" };
+  const nextStatus = { pendiente:"en_camino", en_camino:"entregado" };
+  const nextLabel = { pendiente:"Marcar en camino", en_camino:"Marcar entregado" };
+  root.innerHTML = entries.map(([num,o])=>`
+    <div class="delivery-order">
+      <div class="do-top">
+        <span class="do-num">#${num}</span>
+        <span class="do-status ${o.deliveryStatus||'pendiente'}">${statusLabel[o.deliveryStatus] || statusLabel.pendiente}</span>
+      </div>
+      <div class="do-addr">📍 ${o.address || "(sin dirección)"}</div>
+      <div class="do-phone">📞 ${o.phone || "(sin teléfono)"}</div>
+      ${o.notes ? `<div class="do-notes">📝 ${o.notes}</div>` : ``}
+      <div class="do-notes">🛵 ${o.assignedTo ? ("Repartidor: " + o.assignedTo) : "Sin repartidor asignado todavía"}</div>
+      <div class="do-items">
+        ${o.items.map(i=>`<div style="display:flex;justify-content:space-between;"><span>${i.name}</span><span>${money(i.price)}</span></div>`).join("")}
+        <div style="display:flex;justify-content:space-between;"><span>🚚 Envío</span><span>${money(o.deliveryFee||0)}</span></div>
+      </div>
+      <div class="do-total">Total: ${money(o.total)} ${o.paid ? '· ✔ pagado' : '· cobrar al entregar'}</div>
+      <div class="do-actions">
+        <button class="do-map-btn" data-map="${num}">Ver en mapa</button>
+        ${o.deliveryStatus !== "entregado" ? `<button class="do-advance-btn" data-advance="${num}">${nextLabel[o.deliveryStatus||'pendiente']}</button>` : ``}
+      </div>
+    </div>`).join("");
+
+  root.querySelectorAll("[data-map]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const o = loadOrders()[btn.dataset.map];
+      if(o && o.address) window.open(mapsLink(o.address), "_blank");
+    });
+  });
+  root.querySelectorAll("[data-advance]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const num2 = btn.dataset.advance;
+      const orders2 = loadOrders();
+      const o = orders2[num2];
+      if(!o) return;
+      const cur = o.deliveryStatus || "pendiente";
+      if(nextStatus[cur]){
+        o.deliveryStatus = nextStatus[cur];
+        if(o.deliveryStatus === "entregado") o.paid = true;
+        saveOrders(orders2);
+        renderDelivery();
+      }
+    });
+  });
+}
+document.getElementById("saveDeliveryFeeBtn").addEventListener("click", ()=>{
+  const v = parseFloat(document.getElementById("deliveryFeeInput").value);
+  if(isNaN(v) || v < 0){
+    document.getElementById("deliveryFeeMsg").style.color = "var(--rojo)";
+    document.getElementById("deliveryFeeMsg").textContent = "Escribe un monto válido.";
+    return;
+  }
+  setDeliveryFee(v);
+  document.getElementById("deliveryFeeMsg").style.color = "var(--verde)";
+  document.getElementById("deliveryFeeMsg").textContent = "Tarifa guardada ✔";
+});
+
+/* ===== PRECIOS ===== */
+function renderPrecios(){
+  const root = document.getElementById("preciosRoot");
+  const overrides = loadOverrides();
+  root.innerHTML = MENU.map((c,ci)=>`
+    <div class="cat-block">
+      <h3>${c.cat}</h3>
+      ${c.items.map((it,ii)=>{
+        const key = ci+"-"+ii;
+        const ov = overrides[key] || {};
+        if(c.sizes){
+          const p4 = ov.p4 ?? it.p4;
+          const p8 = ov.p8 ?? it.p8;
+          return `<div class="price-row">
+            <div class="pname">${it.n}</div>
+            <div class="pinputs">
+              <div><input type="number" data-ci="${ci}" data-ii="${ii}" data-field="p4" value="${p4}"><span class="size-tag">4p</span></div>
+              <div><input type="number" data-ci="${ci}" data-ii="${ii}" data-field="p8" value="${p8}"><span class="size-tag">8p</span></div>
+            </div>
+            <span class="save-flash" id="flash-${ci}-${ii}">✓</span>
+          </div>`;
+        }
+        const p = ov.p ?? it.p;
+        return `<div class="price-row">
+          <div class="pname">${it.n}</div>
+          <div class="pinputs">
+            <div><input type="number" data-ci="${ci}" data-ii="${ii}" data-field="p" value="${p}"><span class="size-tag">precio</span></div>
+          </div>
+          <span class="save-flash" id="flash-${ci}-${ii}">✓</span>
+        </div>`;
+      }).join("")}
+    </div>
+  `).join("");
+
+  root.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const ci = inp.dataset.ci, ii = inp.dataset.ii, field = inp.dataset.field;
+      const val = parseFloat(inp.value);
+      if(isNaN(val) || val < 0) return;
+      const overrides2 = loadOverrides();
+      const key = ci+"-"+ii;
+      overrides2[key] = overrides2[key] || {};
+      overrides2[key][field] = val;
+      saveOverrides(overrides2);
+      const flash = document.getElementById(`flash-${ci}-${ii}`);
+      flash.classList.add("show");
+      setTimeout(()=> flash.classList.remove("show"), 1200);
+    });
+  });
+}
+
+/* ===== INVENTARIO (platos agotados) ===== */
+function renderInventario(){
+  const root = document.getElementById("inventarioRoot");
+  const soldOut = loadSoldOut();
+  root.innerHTML = MENU.map((c,ci)=>`
+    <div class="cat-block">
+      <h3>${c.cat}</h3>
+      ${c.items.map((it,ii)=>{
+        const key = ci+"-"+ii;
+        const isOut = !!soldOut[key];
+        return `<div class="price-row">
+          <div class="pname">${it.n}</div>
+          <button class="switch inv-switch ${isOut ? 'off' : ''}" data-ci="${ci}" data-ii="${ii}"></button>
+          <span class="inv-status">${isOut ? "Agotado" : "Disponible"}</span>
+        </div>`;
+      }).join("")}
+    </div>
+  `).join("");
+
+  root.querySelectorAll(".inv-switch").forEach(sw=>{
+    sw.addEventListener("click", ()=>{
+      const ci = sw.dataset.ci, ii = sw.dataset.ii, key = ci+"-"+ii;
+      const soldOut2 = loadSoldOut();
+      soldOut2[key] = !soldOut2[key];
+      if(!soldOut2[key]) delete soldOut2[key];
+      saveSoldOut(soldOut2);
+      renderInventario();
+    });
+  });
+}
+
+/* ===== REPORTES ===== */
+let reportRange = "hoy";
+document.getElementById("reportRangeTabs").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-range]");
+  if(!btn) return;
+  reportRange = btn.dataset.range;
+  document.querySelectorAll("#reportRangeTabs button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  renderReportes();
+});
+
+function ordersInRange(range){
+  const orders = loadOrders();
+  const now = new Date();
+  let from;
+  if(range === "hoy"){
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  } else if(range === "semana"){
+    const d = new Date(now);
+    d.setDate(d.getDate() - 6);
+    from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  } else if(range === "mes"){
+    from = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  } else {
+    from = 0;
+  }
+  return Object.values(orders).filter(o => o.paid && o.ts >= from);
+}
+
+function renderReportes(){
+  const orders = ordersInRange(reportRange);
+  const summaryRoot = document.getElementById("reportSummaryRoot");
+  const topRoot = document.getElementById("reportTopDishesRoot");
+
+  if(!orders.length){
+    summaryRoot.innerHTML = `<div class="report-empty">No hay pedidos pagados en este período.</div>`;
+    topRoot.innerHTML = `<div class="report-empty">Sin datos todavía.</div>`;
+    return;
+  }
+
+  const totalVentas = orders.reduce((s,o)=> s + (o.total || 0), 0);
+  const totalPedidos = orders.length;
+  const promedio = totalVentas / totalPedidos;
+
+  summaryRoot.innerHTML = `
+    <div class="report-stats">
+      <div class="report-stat"><div class="rs-val">RD$${Math.round(totalVentas).toLocaleString("es-DO")}</div><div class="rs-lbl">Ventas totales</div></div>
+      <div class="report-stat"><div class="rs-val">${totalPedidos}</div><div class="rs-lbl">Pedidos</div></div>
+      <div class="report-stat"><div class="rs-val">RD$${Math.round(promedio).toLocaleString("es-DO")}</div><div class="rs-lbl">Ticket promedio</div></div>
+    </div>`;
+
+  const counts = {};
+  orders.forEach(o=>{
+    (o.items || []).forEach(i=>{
+      counts[i.name] = (counts[i.name] || 0) + 1;
+    });
+  });
+  const sorted = Object.entries(counts).sort((a,b)=> b[1]-a[1]).slice(0, 10);
+  topRoot.innerHTML = sorted.map(([name,count])=>`
+    <div class="top-dish-row"><span class="td-name">${name}</span><span class="td-count">${count}x</span></div>
+  `).join("");
+}
+
+/* ===== PROMOCIONES ===== */
+function renderPromoForm(){
+  const select = document.getElementById("promoDishSelect");
+  select.innerHTML = MENU.map((c,ci)=>
+    c.items.map((it,ii)=> `<option value="${ci}-${ii}">${c.cat} — ${it.n}</option>`).join("")
+  ).join("");
+  updatePromoPriceFields();
+  select.addEventListener("change", updatePromoPriceFields);
+}
+function updatePromoPriceFields(){
+  const [ci, ii] = document.getElementById("promoDishSelect").value.split("-").map(Number);
+  const c = MENU[ci], it = c.items[ii];
+  const wrap = document.getElementById("promoPriceFields");
+  if(c.sizes){
+    wrap.innerHTML = `
+      <label>Precio de oferta</label>
+      <div class="row2">
+        <div><input type="number" id="promoP4" placeholder="Precio 4p (normal ${it.p4})"></div>
+        <div><input type="number" id="promoP8" placeholder="Precio 8p (normal ${it.p8})"></div>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <label>Precio de oferta</label>
+      <input type="number" id="promoP" placeholder="Precio normal: ${it.p}">`;
+  }
+}
+document.getElementById("addPromoBtn").addEventListener("click", ()=>{
+  const [ci, ii] = document.getElementById("promoDishSelect").value.split("-").map(Number);
+  const c = MENU[ci];
+  const label = document.getElementById("promoLabel").value.trim() || "Promoción";
+  const promos = loadPromos();
+  const key = ci+"-"+ii;
+  if(c.sizes){
+    const p4 = parseFloat(document.getElementById("promoP4").value);
+    const p8 = parseFloat(document.getElementById("promoP8").value);
+    if(isNaN(p4) && isNaN(p8)){ alert("Escribe al menos un precio de oferta."); return; }
+    promos[key] = { label, p4: isNaN(p4) ? undefined : p4, p8: isNaN(p8) ? undefined : p8 };
+  } else {
+    const p = parseFloat(document.getElementById("promoP").value);
+    if(isNaN(p)){ alert("Escribe el precio de oferta."); return; }
+    promos[key] = { label, p };
+  }
+  savePromos(promos);
+  document.getElementById("promoLabel").value = "";
+  renderActivePromos();
+});
+
+function renderActivePromos(){
+  const promos = loadPromos();
+  const root = document.getElementById("activePromosRoot");
+  const keys = Object.keys(promos);
+  if(keys.length === 0){
+    root.innerHTML = `<p class="empty-note">No hay promociones activas.</p>`;
+    return;
+  }
+  root.innerHTML = keys.map(key=>{
+    const [ci, ii] = key.split("-").map(Number);
+    const c = MENU[ci], it = c.items[ii];
+    const promo = promos[key];
+    let detail;
+    if(c.sizes){
+      detail = [promo.p4!=null ? `4p: ${money(promo.p4)}` : null, promo.p8!=null ? `8p: ${money(promo.p8)}` : null].filter(Boolean).join(" · ");
+    } else {
+      detail = money(promo.p);
+    }
+    return `<div class="promo-list-item">
+      <div>
+        <div class="pl-name">${it.n}</div>
+        <div class="pl-detail">${promo.label} — ${detail}</div>
+      </div>
+      <button class="promo-remove" data-key="${key}">Quitar</button>
+    </div>`;
+  }).join("");
+  root.querySelectorAll(".promo-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const promos2 = loadPromos();
+      delete promos2[btn.dataset.key];
+      savePromos(promos2);
+      renderActivePromos();
+    });
+  });
+}
+
+/* ===== CAMBIAR CONTRASEÑA ===== */
+document.getElementById("changePassBtn").addEventListener("click", ()=>{
+  const current = document.getElementById("currentPass").value;
+  const next = document.getElementById("newPass").value;
+  const msg = document.getElementById("passChangeMsg");
+  if(current !== getPassword()){
+    msg.style.color = "#ff8a8a";
+    msg.textContent = "La contraseña actual no es correcta.";
+    return;
+  }
+  if(!next || next.length < 4){
+    msg.style.color = "#ff8a8a";
+    msg.textContent = "La nueva contraseña debe tener al menos 4 caracteres.";
+    return;
+  }
+  localStorage.setItem("mamita_admin_password", next);
+  document.getElementById("currentPass").value = "";
+  document.getElementById("newPass").value = "";
+  msg.style.color = "var(--verde)";
+  msg.textContent = "Contraseña actualizada.";
+});
+</script>
+</body>
+</html>
