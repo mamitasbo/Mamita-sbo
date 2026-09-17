@@ -140,6 +140,8 @@
   .whatsapp-float:active{ transform: scale(0.92); }
   .whatsapp-float svg{ width: 30px; height: 30px; }
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -176,11 +178,61 @@
 const DELIVERY_ZONE = "San José de Ocoa, República Dominicana";
 function money(n){ return "$" + Number(n).toLocaleString("es-DO"); }
 
+/* ===== FIREBASE: base de datos compartida entre todos los dispositivos ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBKbGhjpZS7JQs9MOIvnfBsEwLW4hlFgf0",
+  authDomain: "mamitasbo-df5a9.firebaseapp.com",
+  projectId: "mamitasbo-df5a9",
+  storageBucket: "mamitasbo-df5a9.firebasestorage.app",
+  messagingSenderId: "123781295385",
+  appId: "1:123781295385:web:19e78064425909e16ce988"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let cachedOrders = {};
+try{ cachedOrders = JSON.parse(localStorage.getItem("mamita_store_orders") || "{}"); }
+catch(e){ cachedOrders = {}; }
+let lastSyncedOrders = JSON.parse(JSON.stringify(cachedOrders));
+
+db.collection("pedidos").onSnapshot((snapshot)=>{
+  const orders = {};
+  snapshot.forEach((doc)=>{ orders[doc.id] = doc.data(); });
+  cachedOrders = orders;
+  lastSyncedOrders = JSON.parse(JSON.stringify(orders));
+  localStorage.setItem("mamita_store_orders", JSON.stringify(orders));
+  if(typeof onOrdersUpdated === "function") onOrdersUpdated();
+}, (err)=>{ console.error("Error de sincronización con Firebase:", err); });
+
 function loadOrders(){
-  try{ return JSON.parse(localStorage.getItem("mamita_store_orders") || "{}"); }
-  catch(e){ return {}; }
+  return cachedOrders;
 }
-function saveOrders(orders){ localStorage.setItem("mamita_store_orders", JSON.stringify(orders)); }
+function saveOrders(orders){
+  cachedOrders = orders;
+  localStorage.setItem("mamita_store_orders", JSON.stringify(orders));
+  try{
+    const batch = db.batch();
+    let count = 0;
+    Object.keys(orders).forEach((num)=>{
+      const curStr = JSON.stringify(orders[num]);
+      const prevStr = JSON.stringify(lastSyncedOrders[num] || null);
+      if(curStr !== prevStr){
+        batch.set(db.collection("pedidos").doc(num), orders[num]);
+        lastSyncedOrders[num] = JSON.parse(curStr);
+        count++;
+      }
+    });
+    if(count > 0){
+      batch.commit().catch((e)=>console.error("Error guardando pedido en Firebase:", e));
+    }
+  }catch(e){ console.error("Error de sincronización con Firebase:", e); }
+}
+function onOrdersUpdated(){
+  const dashboard = document.getElementById("dashboard");
+  if(dashboard && dashboard.style.display !== "none"){
+    renderDelivery();
+  }
+}
 
 function getDriverName(){ return localStorage.getItem("mamita_driver_name") || ""; }
 function setDriverName(n){ localStorage.setItem("mamita_driver_name", n); }
