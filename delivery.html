@@ -207,6 +207,13 @@ db.collection("pedidos").onSnapshot((snapshot)=>{
 function loadOrders(){
   return cachedOrders;
 }
+function stripUndefined(obj){
+  const clean = {};
+  Object.keys(obj).forEach((k)=>{
+    if(obj[k] !== undefined) clean[k] = obj[k];
+  });
+  return clean;
+}
 function saveOrders(orders){
   cachedOrders = orders;
   localStorage.setItem("mamita_store_orders", JSON.stringify(orders));
@@ -217,7 +224,7 @@ function saveOrders(orders){
       const curStr = JSON.stringify(orders[num]);
       const prevStr = JSON.stringify(lastSyncedOrders[num] || null);
       if(curStr !== prevStr){
-        batch.set(db.collection("pedidos").doc(num), orders[num]);
+        batch.set(db.collection("pedidos").doc(num), stripUndefined(orders[num]));
         lastSyncedOrders[num] = JSON.parse(curStr);
         count++;
       }
