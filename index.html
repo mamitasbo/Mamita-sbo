@@ -1119,6 +1119,7 @@ function onOrdersUpdated(){
   if(trackOverlay && trackOverlay.classList.contains("show") && trackCurrentNum){
     renderTrackResult();
   }
+  if(typeof checkSuccessWatch === "function") checkSuccessWatch();
 }
 function makeOrderNumber(orders){
   let num;
@@ -1457,12 +1458,9 @@ function updatePayLabelsForOrderType(){
 }
 
 /* ===== CONFIRMAR "PAGAR EN TIENDA" / "PAGAR AL RECIBIR" ===== */
-document.getElementById("confirmStoreBtn").addEventListener("click", ()=>{
-  if(!restaurantOpen || cart.length===0) return;
-  const total = getCartTotal();
-  const num = createStoreOrder(cart, total, { paid:false });
-  const isDelivery = orderType === "delivery";
-
+let successWatchNum = null;
+let successWatchType = null;
+function renderSuccessSheet(num, total, isDelivery){
   const sheet = document.getElementById("successSheet");
   sheet.innerHTML = isDelivery ? `
     <div class="ticket-wrap">
@@ -1482,13 +1480,12 @@ document.getElementById("confirmStoreBtn").addEventListener("click", ()=>{
       <p class="ticket-sub">El cajero lo busca en 🧾 Caja para cobrarte en efectivo o con tarjeta.</p>
       <button class="new-order-btn" id="newOrderBtnStore">Hacer otro pedido</button>
     </div>`;
-  document.getElementById("payOverlay").classList.remove("show");
-  document.getElementById("successOverlay").classList.add("show");
 
   document.getElementById("newOrderBtnStore").addEventListener("click", ()=>{
     cart = [];
     renderCartBar();
     document.getElementById("successOverlay").classList.remove("show");
+    successWatchNum = null;
     window.scrollTo({top:0, behavior:"smooth"});
   });
   const goToTrackBtnStore = document.getElementById("goToTrackBtnStore");
@@ -1497,9 +1494,54 @@ document.getElementById("confirmStoreBtn").addEventListener("click", ()=>{
       cart = [];
       renderCartBar();
       document.getElementById("successOverlay").classList.remove("show");
+      successWatchNum = null;
       document.getElementById("trackBtn").click();
     });
   }
+}
+function renderThanksSheet(kind){
+  const sheet = document.getElementById("successSheet");
+  const isDelivery = kind === "delivery";
+  sheet.innerHTML = `
+    <div class="ticket-wrap">
+      <div class="ticket-hint" style="font-size:38px; margin-bottom:6px;">🍕</div>
+      <p class="ticket-hint" style="font-size:19px; font-weight:700;">${isDelivery ? "¡Pedido entregado!" : "¡Gracias por su pago!"}</p>
+      <p class="ticket-sub">${isDelivery ? "Gracias por confiar en nosotros. ¡Buen provecho!" : "Vuelva pronto 💛"}</p>
+      <button class="new-order-btn" id="newOrderBtnStore">Hacer otro pedido</button>
+    </div>`;
+  document.getElementById("newOrderBtnStore").addEventListener("click", ()=>{
+    cart = [];
+    renderCartBar();
+    document.getElementById("successOverlay").classList.remove("show");
+    successWatchNum = null;
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+}
+function checkSuccessWatch(){
+  if(!successWatchNum) return;
+  if(!document.getElementById("successOverlay").classList.contains("show")) return;
+  const orders = loadOrders();
+  const o = orders[successWatchNum];
+  if(!o) return;
+  if(successWatchType === "delivery" && o.deliveryStatus === "entregado"){
+    renderThanksSheet("delivery");
+    successWatchNum = null;
+  } else if(successWatchType === "store" && o.paid){
+    renderThanksSheet("store");
+    successWatchNum = null;
+  }
+}
+document.getElementById("confirmStoreBtn").addEventListener("click", ()=>{
+  if(!restaurantOpen || cart.length===0) return;
+  const total = getCartTotal();
+  const num = createStoreOrder(cart, total, { paid:false });
+  const isDelivery = orderType === "delivery";
+
+  renderSuccessSheet(num, total, isDelivery);
+  successWatchNum = num;
+  successWatchType = isDelivery ? "delivery" : "store";
+  document.getElementById("payOverlay").classList.remove("show");
+  document.getElementById("successOverlay").classList.add("show");
 });
 
 /* ===== BADGE Y MODAL DE MESA / DELIVERY ===== */
