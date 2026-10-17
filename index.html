@@ -828,10 +828,14 @@
     </div>
 
     <div class="pay-view active" id="viewModeMesa">
-      <p class="sans" style="font-size:13px;color:#79705f;margin:8px 0 18px;">Escribe el número de tu mesa para que la cocina sepa dónde llevar tu pedido.</p>
+      <p class="sans" style="font-size:13px;color:#79705f;margin:8px 0 18px;">Escribe tu nombre y elige tu mesa para que la cocina sepa dónde llevar tu pedido.</p>
+      <div class="field">
+        <label>Tu nombre</label>
+        <input type="text" id="customerNameInput" maxlength="40" placeholder="Ej. María">
+      </div>
       <div class="field">
         <label>Número de mesa</label>
-        <input type="text" id="tableInput" inputmode="numeric" maxlength="3" placeholder="Ej. 4">
+        <select id="tableSelect"></select>
       </div>
       <button class="pay-btn" id="confirmTableBtn">Confirmar mesa</button>
     </div>
@@ -993,8 +997,7 @@ function money(n){ return "$" + n.toLocaleString("es-DO"); }
 
 /* ===== TARIFA DE DELIVERY (la configura el restaurante) ===== */
 function getDeliveryFee(){
-  const v = parseFloat(localStorage.getItem("mamita_delivery_fee"));
-  return isNaN(v) ? 100 : v;
+  return cachedConfig.deliveryFee;
 }
 function getItemsTotal(){ return cart.reduce((a,b)=>a+b.price,0); }
 function getCartTotal(){ return getItemsTotal() + (orderType === "delivery" ? getDeliveryFee() : 0); }
@@ -1028,6 +1031,38 @@ function setTableNumber(n){
   else localStorage.removeItem('mamita_table');
   updateTableBadge();
 }
+function setCustomerName(name){
+  localStorage.setItem('mamita_customer_name', name);
+}
+function getCustomerName(){
+  return localStorage.getItem('mamita_customer_name') || '';
+}
+const TOTAL_TABLES = 20;
+function getOccupiedTables(){
+  const orders = loadOrders();
+  const occupied = new Set();
+  Object.values(orders).forEach((o)=>{
+    if(o && o.type === "mesa" && o.table && !o.paid){
+      occupied.add(String(o.table));
+    }
+  });
+  return occupied;
+}
+function renderTableOptions(){
+  const sel = document.getElementById("tableSelect");
+  if(!sel) return;
+  const occupied = getOccupiedTables();
+  const current = tableNumber ? String(tableNumber) : null;
+  let html = '<option value="">Elige tu mesa...</option>';
+  for(let i=1;i<=TOTAL_TABLES;i++){
+    const num = String(i);
+    const isOccupied = occupied.has(num) && num !== current;
+    html += `<option value="${num}" ${isOccupied ? "disabled":""}>Mesa ${num}${isOccupied ? " (ocupada)":""}</option>`;
+  }
+  sel.innerHTML = html;
+  const nameInput = document.getElementById("customerNameInput");
+  if(nameInput && !nameInput.value) nameInput.value = getCustomerName();
+}
 function setDeliveryInfo(info){
   deliveryInfo = info;
   orderType = "delivery";
@@ -1054,6 +1089,7 @@ function initTable(){
     return;
   }
   updateTableBadge();
+  renderTableOptions();
   document.getElementById('tableOverlay').classList.add('show');
 }
 
@@ -1087,6 +1123,26 @@ db.collection("pedidos").onSnapshot((snapshot)=>{
 function loadOrders(){
   return cachedOrders;
 }
+
+/* ===== AJUSTES DEL RESTAURANTE COMPARTIDOS EN LA NUBE (estado, precios, promos, agotados, tarifa) ===== */
+let cachedConfig = { open: true, deliveryFee: 100, overrides: {}, promos: {}, soldOut: {} };
+try{
+  const savedConfig = JSON.parse(localStorage.getItem("mamita_config") || "null");
+  if(savedConfig) Object.assign(cachedConfig, savedConfig);
+}catch(e){}
+db.collection("ajustes").doc("config").onSnapshot((doc)=>{
+  if(doc.exists){
+    cachedConfig = Object.assign({ open:true, deliveryFee:100, overrides:{}, promos:{}, soldOut:{} }, doc.data());
+    localStorage.setItem("mamita_config", JSON.stringify(cachedConfig));
+    if(typeof onConfigUpdated === "function") onConfigUpdated();
+  }
+}, (err)=>{ console.error("Error de sincronizacion de ajustes con Firebase:", err); });
+function saveConfig(partial){
+  Object.assign(cachedConfig, partial);
+  localStorage.setItem("mamita_config", JSON.stringify(cachedConfig));
+  db.collection("ajustes").doc("config").set(cachedConfig, { merge:true }).catch((e)=>console.error("Error guardando ajustes en Firebase:", e));
+}
+
 function stripUndefined(obj){
   const clean = {};
   Object.keys(obj).forEach((k)=>{
@@ -1120,6 +1176,18 @@ function onOrdersUpdated(){
     renderTrackResult();
   }
   if(typeof checkSuccessWatch === "function") checkSuccessWatch();
+  const tableOverlay = document.getElementById("tableOverlay");
+  if(tableOverlay && tableOverlay.classList.contains("show")){
+    renderTableOptions();
+  }
+}
+function onConfigUpdated(){
+  if(typeof applyOpenState === "function") applyOpenState();
+  if(typeof renderMenu === "function") renderMenu();
+  const cartOverlay = document.getElementById("cartOverlay");
+  if(cartOverlay && cartOverlay.classList.contains("show") && typeof renderCartSheet === "function"){
+    renderCartSheet();
+  }
 }
 function makeOrderNumber(orders){
   let num;
@@ -1135,6 +1203,7 @@ function createStoreOrder(items, total, opts){
     items: items.map(i=>({name:i.name, price:i.price})),
     total,
     table: orderType === "mesa" ? (tableNumber || null) : null,
+    customerName: orderType === "mesa" ? getCustomerName() : undefined,
     type: orderType,
     address: orderType === "delivery" ? deliveryInfo.address : undefined,
     phone: orderType === "delivery" ? deliveryInfo.phone : undefined,
@@ -1172,12 +1241,10 @@ function addToHistory(order, num){
 
 /* ===== PRECIOS Y PROMOCIONES CONTROLADOS DESDE EL PANEL DEL RESTAURANTE ===== */
 function loadOverrides(){
-  try{ return JSON.parse(localStorage.getItem("mamita_price_overrides") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.overrides || {};
 }
 function loadPromos(){
-  try{ return JSON.parse(localStorage.getItem("mamita_promotions") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.promos || {};
 }
 function basePrice(it, size){
   if(size) return size === "4" ? it.p4 : it.p8;
@@ -1198,14 +1265,12 @@ function effectivePrice(ci, ii, it, size){
 
 /* ===== ESTADO ABIERTO/CERRADO (lo controla el panel del restaurante) ===== */
 function isRestaurantOpen(){
-  const v = localStorage.getItem("mamita_open");
-  return v === null ? true : v === "1";
+  return cachedConfig.open;
 }
 
 /* ===== PLATOS AGOTADOS (lo controla el panel del restaurante) ===== */
 function loadSoldOut(){
-  try{ return JSON.parse(localStorage.getItem("mamita_sold_out") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.soldOut || {};
 }
 function isSoldOut(ci, ii){
   const soldOut = loadSoldOut();
@@ -1281,7 +1346,9 @@ function priceBlockHTML(ci, ii, it, size){
 }
 
 function renderItem(c, ci, it, ii){
-  const photo = it.img && IMAGES[it.img] ? `<img class="item-photo" src="${IMAGES[it.img]}" alt="${it.n}">` : "";
+  const overridePhoto = (loadOverrides()[ci+"-"+ii] || {}).photo;
+  const photoSrc = overridePhoto || (it.img && IMAGES[it.img] ? IMAGES[it.img] : "");
+  const photo = photoSrc ? `<img class="item-photo" src="${photoSrc}" alt="${it.n}">` : "";
   const soldOut = isSoldOut(ci, ii);
   const soldOutBadge = soldOut ? `<div class="soldout-badge">Agotado hoy</div>` : "";
   const addBtnHtml = soldOut
@@ -1560,12 +1627,12 @@ document.getElementById("tableBadge").addEventListener("click", ()=>{
 document.getElementById("closeTable").addEventListener("click", ()=>{
   document.getElementById("tableOverlay").classList.remove("show");
 });
-document.getElementById("tableInput").addEventListener("input", (e)=>{
-  e.target.value = e.target.value.replace(/\D/g,"").slice(0,3);
-});
 document.getElementById("confirmTableBtn").addEventListener("click", ()=>{
-  const v = document.getElementById("tableInput").value.trim();
-  if(!v){ alert("Escribe el número de tu mesa."); return; }
+  const name = document.getElementById("customerNameInput").value.trim();
+  const v = document.getElementById("tableSelect").value;
+  if(!name){ alert("Escribe tu nombre."); return; }
+  if(!v){ alert("Elige el número de tu mesa."); return; }
+  setCustomerName(name);
   setTableNumber(v);
   document.getElementById("tableOverlay").classList.remove("show");
 });
@@ -1580,6 +1647,7 @@ document.getElementById("tabModeMesa").addEventListener("click", ()=>{
   document.getElementById("tabModeDelivery").classList.remove("active");
   document.getElementById("viewModeMesa").classList.add("active");
   document.getElementById("viewModeDelivery").classList.remove("active");
+  renderTableOptions();
 });
 document.getElementById("tabModeDelivery").addEventListener("click", ()=>{
   document.getElementById("tabModeDelivery").classList.add("active");
