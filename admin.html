@@ -243,9 +243,15 @@
     border-bottom: 1px solid var(--linea);
   }
   .price-row{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap: wrap;
     gap:10px; padding: 9px 0; border-bottom: 1px dashed var(--linea);
   }
+  .pphoto-row{ display:flex; align-items:center; gap:8px; width:100%; order:3; }
+  .pphoto-input{
+    flex:1; min-width:0; border:1.5px solid var(--linea); border-radius:8px;
+    padding:7px 8px; font-size:12px; text-align:left; font-weight:400;
+  }
+  .pphoto-preview{ width:34px; height:34px; border-radius:6px; object-fit:cover; flex-shrink:0; }
   .price-row .pname{ font-size:13px; font-weight:600; flex:1; min-width:0; }
   .price-row .pinputs{ display:flex; gap:6px; flex-shrink:0; }
   .price-row input{
@@ -365,13 +371,9 @@
 
   <div class="tab-panel" id="tab-caja">
     <div class="card">
-      <h2>Aceptar pago de un pedido</h2>
-      <div class="sub">Pide al cliente el número que le aparece en su pantalla al elegir "Pagar en tienda".</div>
-      <div class="caja-input-row">
-        <input type="text" id="cajaInput" placeholder="N.º" inputmode="numeric" maxlength="4">
-        <button class="btn primary" id="cajaSearchBtn">Buscar</button>
-      </div>
-      <div id="cajaResult"><p class="caja-empty">Ingresa el número que te muestra el cliente.</p></div>
+      <h2>Pedidos pendientes de pago</h2>
+      <div class="sub">Aparecen aquí automáticamente los pedidos de mesa y tienda, con la hora en que se hicieron.</div>
+      <div id="cajaList"><p class="caja-empty">No hay pedidos pendientes.</p></div>
     </div>
   </div>
 
@@ -557,10 +559,35 @@ let cachedOrders = {};
 try{ cachedOrders = JSON.parse(localStorage.getItem("mamita_store_orders") || "{}"); }
 catch(e){ cachedOrders = {}; }
 let lastSyncedOrders = JSON.parse(JSON.stringify(cachedOrders));
+let seenOrderNums = new Set(Object.keys(cachedOrders));
+function playNewOrderSound(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime+0.02);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1180, ctx.currentTime+0.14);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.5);
+    osc.start();
+    osc.stop(ctx.currentTime+0.5);
+  }catch(e){}
+}
 
 db.collection("pedidos").onSnapshot((snapshot)=>{
   const orders = {};
   snapshot.forEach((doc)=>{ orders[doc.id] = doc.data(); });
+  if(dashboardInited){
+    const hasNewPending = Object.keys(orders).some((num)=>{
+      const o = orders[num];
+      return !seenOrderNums.has(num) && o && o.type !== "delivery" && !o.paid && !o.cancelled;
+    });
+    if(hasNewPending) playNewOrderSound();
+  }
+  Object.keys(orders).forEach((num)=> seenOrderNums.add(num));
   cachedOrders = orders;
   lastSyncedOrders = JSON.parse(JSON.stringify(orders));
   localStorage.setItem("mamita_store_orders", JSON.stringify(orders));
@@ -570,6 +597,26 @@ db.collection("pedidos").onSnapshot((snapshot)=>{
 function loadOrders(){
   return cachedOrders;
 }
+
+/* ===== AJUSTES DEL RESTAURANTE COMPARTIDOS EN LA NUBE (estado, precios, promos, agotados, tarifa) ===== */
+let cachedConfig = { open: true, deliveryFee: 100, overrides: {}, promos: {}, soldOut: {} };
+try{
+  const savedConfig = JSON.parse(localStorage.getItem("mamita_config") || "null");
+  if(savedConfig) Object.assign(cachedConfig, savedConfig);
+}catch(e){}
+db.collection("ajustes").doc("config").onSnapshot((doc)=>{
+  if(doc.exists){
+    cachedConfig = Object.assign({ open:true, deliveryFee:100, overrides:{}, promos:{}, soldOut:{} }, doc.data());
+    localStorage.setItem("mamita_config", JSON.stringify(cachedConfig));
+    if(typeof onConfigUpdated === "function") onConfigUpdated();
+  }
+}, (err)=>{ console.error("Error de sincronizacion de ajustes con Firebase:", err); });
+function saveConfig(partial){
+  Object.assign(cachedConfig, partial);
+  localStorage.setItem("mamita_config", JSON.stringify(cachedConfig));
+  db.collection("ajustes").doc("config").set(cachedConfig, { merge:true }).catch((e)=>console.error("Error guardando ajustes en Firebase:", e));
+}
+
 function stripUndefined(obj){
   const clean = {};
   Object.keys(obj).forEach((k)=>{
@@ -601,43 +648,46 @@ function onOrdersUpdated(){
   if(!dashboardInited) return;
   renderDelivery();
   renderReportes();
-  const cajaInput = document.getElementById("cajaInput");
-  if(cajaInput && cajaInput.value.trim().length === 4){
-    renderCajaResult(cajaInput.value.trim());
+  renderCajaList();
+}
+function onConfigUpdated(){
+  if(!dashboardInited) return;
+  renderEstado();
+  renderPrecios();
+  renderInventario();
+  renderActivePromos();
+  const feeInput = document.getElementById("deliveryFeeInput");
+  if(feeInput && document.activeElement !== feeInput){
+    feeInput.value = getDeliveryFee();
   }
 }
 
 /* ===== TARIFA DE DELIVERY ===== */
 function getDeliveryFee(){
-  const v = parseFloat(localStorage.getItem("mamita_delivery_fee"));
-  return isNaN(v) ? 100 : v;
+  return cachedConfig.deliveryFee;
 }
-function setDeliveryFee(v){ localStorage.setItem("mamita_delivery_fee", String(v)); }
+function setDeliveryFee(v){ saveConfig({deliveryFee: v}); }
 const DELIVERY_ZONE = "San José de Ocoa, República Dominicana";
 
 /* ===== PRECIOS Y PROMOS ===== */
 function loadOverrides(){
-  try{ return JSON.parse(localStorage.getItem("mamita_price_overrides") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.overrides || {};
 }
-function saveOverrides(o){ localStorage.setItem("mamita_price_overrides", JSON.stringify(o)); }
+function saveOverrides(o){ saveConfig({overrides: o}); }
 function loadPromos(){
-  try{ return JSON.parse(localStorage.getItem("mamita_promotions") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.promos || {};
 }
-function savePromos(p){ localStorage.setItem("mamita_promotions", JSON.stringify(p)); }
+function savePromos(p){ saveConfig({promos: p}); }
 function loadSoldOut(){
-  try{ return JSON.parse(localStorage.getItem("mamita_sold_out") || "{}"); }
-  catch(e){ return {}; }
+  return cachedConfig.soldOut || {};
 }
-function saveSoldOut(s){ localStorage.setItem("mamita_sold_out", JSON.stringify(s)); }
+function saveSoldOut(s){ saveConfig({soldOut: s}); }
 
 /* ===== ESTADO ABIERTO/CERRADO ===== */
 function isOpen(){
-  const v = localStorage.getItem("mamita_open");
-  return v === null ? true : v === "1";
+  return cachedConfig.open;
 }
-function setOpen(v){ localStorage.setItem("mamita_open", v ? "1" : "0"); }
+function setOpen(v){ saveConfig({open: v}); }
 
 /* ===== LOGIN ===== */
 document.getElementById("loginBtn").addEventListener("click", tryLogin);
@@ -688,6 +738,7 @@ function initDashboard(){
   renderPromoForm();
   renderActivePromos();
   renderDelivery();
+  renderCajaList();
   document.getElementById("deliveryFeeInput").value = getDeliveryFee();
 }
 
@@ -706,57 +757,62 @@ document.getElementById("estadoSwitch").addEventListener("click", ()=>{
 });
 
 /* ===== CAJA ===== */
-document.getElementById("cajaInput").addEventListener("input", (e)=>{
-  e.target.value = e.target.value.replace(/\D/g,"").slice(0,4);
-});
-document.getElementById("cajaInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") document.getElementById("cajaSearchBtn").click();
-});
-document.getElementById("cajaSearchBtn").addEventListener("click", ()=>{
-  const num = document.getElementById("cajaInput").value.trim();
-  if(num.length !== 4){
-    document.getElementById("cajaResult").innerHTML = `<p class="caja-empty">Escribe el número de 4 dígitos.</p>`;
-    return;
-  }
-  renderCajaResult(num);
-});
-function renderCajaResult(num){
-  const orders = loadOrders();
-  const order = orders[num];
-  const result = document.getElementById("cajaResult");
-  if(!order){
-    result.innerHTML = `<p class="caja-empty">No se encontró ningún pedido con el número <strong>${num}</strong>.</p>`;
-    return;
-  }
-  result.innerHTML = `
-    <div class="caja-result">
-      ${order.table ? `<div class="cr-mesa">🍽️ Mesa ${order.table}</div>` : ``}
-      <div class="cr-total">${money(order.total)}</div>
-      ${order.items.map(i=>`<div class="cr-line"><span>${i.name}</span><span>${money(i.price)}</span></div>`).join("")}
-      <div class="cr-status ${order.paid ? 'pagado':'pendiente'}">${order.paid ? '✔ Ya pagado' : '● Pendiente de pago'}</div>
-      <button class="mark-paid-btn" id="markPaidBtn" ${order.paid ? 'disabled':''}>${order.paid ? 'Ya está marcado como pagado' : 'Aceptar pago'}</button>
-    </div>`;
-  const markBtn = document.getElementById("markPaidBtn");
-  if(markBtn && !order.paid){
-    markBtn.addEventListener("click", ()=>{
-      const orders2 = loadOrders();
-      if(orders2[num]){
-        orders2[num].paid = true;
-        saveOrders(orders2);
-        result.innerHTML = `
-          <div class="caja-thanks">
-            <div class="caja-thanks-icon">🍕</div>
-            <div class="caja-thanks-title">¡Gracias por su pago!</div>
-            <div class="caja-thanks-sub">Vuelva pronto 💛</div>
-          </div>`;
-        document.getElementById("cajaInput").value = "";
-        setTimeout(()=>{
-          result.innerHTML = `<p class="caja-empty">Ingresa el número que te muestra el cliente.</p>`;
-        }, 2500);
-      }
-    });
-  }
+function formatOrderTime(ts){
+  if(!ts) return "";
+  try{
+    return new Date(ts).toLocaleTimeString("es-DO", {hour:"2-digit", minute:"2-digit"});
+  }catch(e){ return ""; }
 }
+function renderCajaList(){
+  const list = document.getElementById("cajaList");
+  if(!list) return;
+  const orders = loadOrders();
+  const pending = Object.entries(orders)
+    .filter(([num, o]) => o && o.type !== "delivery" && !o.paid && !o.cancelled)
+    .sort((a,b) => (a[1].ts||0) - (b[1].ts||0));
+  if(pending.length === 0){
+    list.innerHTML = '<p class="caja-empty">No hay pedidos pendientes.</p>';
+    return;
+  }
+  list.innerHTML = pending.map(([num, o])=>{
+    const itemsHtml = (o.items||[]).map(i=>`<div class="cr-line"><span>${i.name}</span><span>${money(i.price)}</span></div>`).join("");
+    const who = [o.table ? ("🍽️ Mesa " + o.table) : "", o.customerName ? o.customerName : ""].filter(Boolean).join(" — ");
+    return `
+      <div class="caja-order">
+        <div class="caja-order-head">
+          <span class="caja-order-num">#${num}</span>
+          <span class="caja-order-time">🕐 ${formatOrderTime(o.ts)}</span>
+        </div>
+        ${who ? `<div class="cr-mesa">${who}</div>` : ``}
+        <div class="cr-total">${money(o.total)}</div>
+        <details class="caja-receipt">
+          <summary>Ver recibo</summary>
+          ${itemsHtml}
+        </details>
+        <div class="caja-order-actions">
+          <button class="mark-paid-btn" data-action="pay" data-num="${num}">Aceptar pago</button>
+          <button class="cancel-order-btn" data-action="cancel" data-num="${num}">Cancelar</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+document.getElementById("cajaList").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-action]");
+  if(!btn) return;
+  const num = btn.getAttribute("data-num");
+  const action = btn.getAttribute("data-action");
+  const orders = loadOrders();
+  if(!orders[num]) return;
+  if(action === "pay"){
+    orders[num].paid = true;
+    saveOrders(orders);
+  } else if(action === "cancel"){
+    if(!confirm("¿Cancelar el pedido #" + num + "?")) return;
+    orders[num].cancelled = true;
+    saveOrders(orders);
+  }
+  renderCajaList();
+});
 
 /* ===== DELIVERY ===== */
 function mapsLink(address){
@@ -840,6 +896,11 @@ function renderPrecios(){
       ${c.items.map((it,ii)=>{
         const key = ci+"-"+ii;
         const ov = overrides[key] || {};
+        const photoUrl = ov.photo || "";
+        const photoRow = `<div class="pphoto-row">
+          <input type="text" class="pphoto-input" data-ci="${ci}" data-ii="${ii}" data-field="photo" placeholder="Pega aquí el link de una foto (https://...)" value="${photoUrl.replace(/"/g,'&quot;')}">
+          ${photoUrl ? `<img class="pphoto-preview" src="${photoUrl}" alt="">` : ``}
+        </div>`;
         if(c.sizes){
           const p4 = ov.p4 ?? it.p4;
           const p8 = ov.p8 ?? it.p8;
@@ -850,6 +911,7 @@ function renderPrecios(){
               <div><input type="number" data-ci="${ci}" data-ii="${ii}" data-field="p8" value="${p8}"><span class="size-tag">8p</span></div>
             </div>
             <span class="save-flash" id="flash-${ci}-${ii}">✓</span>
+            ${photoRow}
           </div>`;
         }
         const p = ov.p ?? it.p;
@@ -859,6 +921,7 @@ function renderPrecios(){
             <div><input type="number" data-ci="${ci}" data-ii="${ii}" data-field="p" value="${p}"><span class="size-tag">precio</span></div>
           </div>
           <span class="save-flash" id="flash-${ci}-${ii}">✓</span>
+          ${photoRow}
         </div>`;
       }).join("")}
     </div>
@@ -867,16 +930,23 @@ function renderPrecios(){
   root.querySelectorAll("input").forEach(inp=>{
     inp.addEventListener("change", ()=>{
       const ci = inp.dataset.ci, ii = inp.dataset.ii, field = inp.dataset.field;
-      const val = parseFloat(inp.value);
-      if(isNaN(val) || val < 0) return;
       const overrides2 = loadOverrides();
       const key = ci+"-"+ii;
       overrides2[key] = overrides2[key] || {};
-      overrides2[key][field] = val;
+      if(field === "photo"){
+        overrides2[key][field] = inp.value.trim();
+      }else{
+        const val = parseFloat(inp.value);
+        if(isNaN(val) || val < 0) return;
+        overrides2[key][field] = val;
+      }
       saveOverrides(overrides2);
       const flash = document.getElementById(`flash-${ci}-${ii}`);
-      flash.classList.add("show");
-      setTimeout(()=> flash.classList.remove("show"), 1200);
+      if(flash){
+        flash.classList.add("show");
+        setTimeout(()=> flash.classList.remove("show"), 1200);
+      }
+      if(field === "photo") renderPrecios();
     });
   });
 }
